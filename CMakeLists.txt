@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(graph_search)
+project(graph_search2)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_BUILD_TYPE Release)
@@ -16,10 +16,11 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   )
 
-add_library(${PROJECT_NAME} SHARED src/graph_search.cpp)
+add_library(${PROJECT_NAME} SHARED src/graph_search2.cpp)
 
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(${PROJECT_NAME} PUBLIC
   ${catkin_LIBRARIES}
+  pthread
   )
 
 install(TARGETS ${PROJECT_NAME}
@@ -32,3 +33,9 @@ install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
   FILES_MATCHING PATTERN "*.h"
 )
+
+
+add_executable(sample1 src/sample1.cpp)
+target_link_libraries(sample1 PUBLIC
+  ${PROJECT_NAME}
+  )

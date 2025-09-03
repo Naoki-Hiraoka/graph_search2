@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>graph_search</name>
+  <name>graph_search2</name>
   <version>0.0.0</version>
-  <description>The graph_search package</description>
+  <description>The graph_search2 package</description>
 
-  <maintainer email="t-hiraoka@jsk.imi.i.u-tokyo.ac.jp">Takuma-Hiraoka</maintainer>
+  <maintainer email="hiraoka@jsk.imi.i.u-tokyo.ac.jp">Naoki-Hiraoka</maintainer>
 
   <license>BSD</license>
 
