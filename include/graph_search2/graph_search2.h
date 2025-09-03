@@ -45,7 +45,9 @@ namespace graph_search2{
 
   template<typename T>
   std::vector<std::shared_ptr<T> > path(std::shared_ptr<Node> node) {
-    if(node && node->parent()){
+    if(!node){
+      return std::vector<std::shared_ptr<T> >();
+    }else if(node->parent()){
       std::vector<std::shared_ptr<T> > p = path<T>(node->parent());
       p.push_back(std::static_pointer_cast<T>(node));
       return p;
