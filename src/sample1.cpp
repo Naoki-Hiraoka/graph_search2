@@ -29,7 +29,7 @@ public:
   }
 
   bool checkValidity() override{
-    std::cout << "validity " << this->x << " " << this->y << std::endl;
+    //std::cout << "validity " << this->x << " " << this->y << std::endl;
 
     return (this->x >= 0) && (this->x <= 4) && (this->y >= 0) && (this->y <= 4)
       && !(this->x == 2 && this->y == 0)
@@ -38,7 +38,7 @@ public:
   }
 
   std::list<std::shared_ptr<graph_search2::Node> > expand() override{
-    std::cout << "expand " << this->x << " " << this->y << std::endl;
+    //std::cout << "expand " << this->x << " " << this->y << std::endl;
 
     std::list<std::shared_ptr<graph_search2::Node> > children;
     {
@@ -83,6 +83,8 @@ int main(){
   startNode->y = 0;
   startNode->calcCost();
   graph_search2::Param param;
+  param.threadsNum = 10;
+  //param.debugLevel = 2;
 
   {
     std::cout << std::endl << "BREADH_FIRST" << std::endl;
