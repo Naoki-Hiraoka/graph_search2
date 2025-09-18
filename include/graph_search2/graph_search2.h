@@ -67,6 +67,7 @@ namespace graph_search2{
       };
     SolverType solverType = SolverType::A_STAR;
     unsigned long maxValidityNum = 1e6;
+    double timeout = 30.0;
     unsigned int threadsNum = 1;
     int debugLevel = 0; // 0: no message. 1: time measure. 2: verbose
   };

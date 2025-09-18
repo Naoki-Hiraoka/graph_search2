@@ -5,6 +5,7 @@
 #include <vector>
 #include <thread>
 #include <mutex>
+#include <sys/time.h>
 
 namespace graph_search2{
 
@@ -75,9 +76,14 @@ namespace graph_search2{
     std::mutex closeList_mtx;
 
     unsigned long validityNum = 0;
+    struct timeval startTime;
+    gettimeofday(&startTime, NULL);
 
     if(param.threadsNum<=1){
-      while(validityNum < param.maxValidityNum){
+      struct timeval currentTime;
+      gettimeofday(&currentTime, NULL);
+      while(validityNum < param.maxValidityNum &&
+            ((currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6) < param.timeout){
         if(openList.size()==0) return nullptr;
         std::shared_ptr<Node> target = openList.front();
         if(param.debugLevel >= 2) {
@@ -91,15 +97,18 @@ namespace graph_search2{
         closeList.push_back(target);
         std::list<std::shared_ptr<Node> > children = target->expand();
         addToOpenList(openList, children, param.solverType);
+        gettimeofday(&currentTime, NULL);
       };
       return nullptr;
     }
 
     std::shared_ptr<Node> goal = nullptr;
     std::vector<std::unique_ptr<std::thread> > threads;
-    bool finished = false; // goal || validityNum >= param.maxValidityNum || (openList.size()==0 && waitingThreadsNum==param.threadsNum)
+    bool finished = false; // goal || validityNum >= param.maxValidityNum || (openList.size()==0 && waitingThreadsNum==param.threadsNum) || (((currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6) > param.timeout)
     for(int i=0;i<param.threadsNum;i++){
       threads.push_back(std::make_unique<std::thread>([&,i]{
+        struct timeval currentTime;
+        gettimeofday(&currentTime, NULL);
         while(true){
           openList_cv.notify_all();
           std::shared_ptr<Node> target;
@@ -108,6 +117,8 @@ namespace graph_search2{
             waitingThreadsNum += 1;
             openList_cv.wait(openList_lock, [&] {
                                               if(openList.size()==0 && waitingThreadsNum==param.threadsNum) finished = true;
+                                              gettimeofday(&currentTime, NULL);
+                                              if(((currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6) > param.timeout) finished = true;
                                               return openList.size()!=0 || finished; });
             if(finished) break;
             waitingThreadsNum -= 1;
