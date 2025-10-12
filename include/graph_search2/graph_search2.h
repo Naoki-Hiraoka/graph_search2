@@ -21,8 +21,8 @@ namespace graph_search2{
     // start nodeからこのnodeまでのコスト
     double gCost() const {return this->gCost_; }
 
-    // goalに到達しているか
-    bool isGoal() const {return this->isGoal_; }
+    // goalに到達しているか. この関数がtrueを返したならば、探索は修了する.
+    virtual bool isGoal() const {return this->isGoal_; }
 
     // このnodeとotherが同じかどうかを判定する. 既に訪れたnodeは再度訪れない
     virtual bool isSame(const std::shared_ptr<Node>& other) const = 0;
