@@ -80,6 +80,7 @@ namespace graph_search2{
     gettimeofday(&startTime, NULL);
 
     if(param.threadsNum<=1){
+      std::shared_ptr<Node> target_;
       struct timeval currentTime;
       gettimeofday(&currentTime, NULL);
       while(validityNum < param.maxValidityNum &&
@@ -93,13 +94,21 @@ namespace graph_search2{
         if(findNodeInCloseList(closeList,target)) continue;
         validityNum++;
         if(!target->checkValidity()) continue;
-        if(target->isGoal()) return target;
+        if(target->isGoal()) {
+          target_ = target;
+          break;
+        }
         closeList.push_back(target);
         std::list<std::shared_ptr<Node> > children = target->expand();
         addToOpenList(openList, children, param.solverType);
         gettimeofday(&currentTime, NULL);
       };
-      return nullptr;
+      if(param.debugLevel >= 1){
+        struct timeval currentTime;
+        gettimeofday(&currentTime, NULL);
+        std::cerr << "graph_search2 finished in " << (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6 << std::endl;
+      }
+      return target_;
     }
 
     std::shared_ptr<Node> goal = nullptr;
@@ -157,6 +166,11 @@ namespace graph_search2{
     }
     for(int i=0;i<threads.size();i++){
       threads[i]->join();
+    }
+    if(param.debugLevel >= 1){
+      struct timeval currentTime;
+      gettimeofday(&currentTime, NULL);
+      std::cerr << "graph_search2 finished in " << (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6 << std::endl;
     }
     return goal;
   }
