@@ -147,7 +147,7 @@ namespace graph_search2{
           }
           if(!target->checkValidity()) continue;
           if(target->isGoal()) {
-            goal = target;
+            if(!goal) goal = target;
             finished = true;
             continue;
           }
