@@ -131,6 +131,7 @@ namespace graph_search2{
                                               return openList.size()!=0 || finished; });
             if(finished) break;
             waitingThreadsNum -= 1;
+            if(openList.size() == 0) continue; // 念の為.
             target = openList.front();
             openList.pop_front();
           }
