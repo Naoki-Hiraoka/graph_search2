@@ -85,7 +85,7 @@ namespace graph_search2{
       gettimeofday(&currentTime, NULL);
       while(validityNum < param.maxValidityNum &&
             ((currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6) < param.timeout){
-        if(openList.size()==0) return nullptr;
+        if(openList.size()==0) break;
         std::shared_ptr<Node> target = openList.front();
         if(param.debugLevel >= 2) {
           std::cerr << "openList:" << openList.size() << ", closeList: " << closeList.size() << ", validityNum: " << validityNum << std::endl;
