@@ -63,7 +63,11 @@ namespace graph_search2{
        BREADH_FIRST,
        DEPTH_FIRST,
        BEST_FIRST,
-       A_STAR
+       A_STAR,
+       TAMP_BREADH_FIRST,
+       TAMP_DEPTH_FIRST,
+       TAMP_BEST_FIRST,
+       TAMP_A_STAR
       };
     SolverType solverType = SolverType::A_STAR;
     unsigned long maxValidityNum = 1e6;

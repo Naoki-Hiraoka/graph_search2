@@ -13,11 +13,14 @@ namespace graph_search2{
   bool comparegh(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b) { return a->gCost()+a->hCost() < b->gCost()+b->hCost();}
 
   inline void addToOpenList(std::list<std::shared_ptr<Node> >& openList/*ソート済みである*/, std::list<std::shared_ptr<Node> >& newNodes/*破壊的処理される*/, const Param::SolverType& solverType) {
-    if(solverType == Param::SolverType::BREADH_FIRST){
+    if(solverType == Param::SolverType::BREADH_FIRST ||
+       solverType == Param::SolverType::TAMP_BREADH_FIRST){
       openList.insert(openList.end(), newNodes.begin(), newNodes.end());
-    }else if (solverType == Param::SolverType::DEPTH_FIRST){
+    }else if (solverType == Param::SolverType::DEPTH_FIRST ||
+              solverType == Param::SolverType::TAMP_DEPTH_FIRST){
       openList.insert(openList.begin(), newNodes.begin(), newNodes.end());
-    }else if (solverType == Param::SolverType::BEST_FIRST){
+    }else if (solverType == Param::SolverType::BEST_FIRST ||
+              solverType == Param::SolverType::TAMP_BEST_FIRST){
       newNodes.sort(compareh);
       std::list<std::shared_ptr<Node> >::iterator it1 = openList.begin();
       std::list<std::shared_ptr<Node> >::iterator it2 = newNodes.begin();
@@ -32,7 +35,8 @@ namespace graph_search2{
           it2++;
         }
       }
-    }else if (solverType == Param::SolverType::A_STAR){
+    }else if (solverType == Param::SolverType::A_STAR ||
+              solverType == Param::SolverType::TAMP_A_STAR){
       newNodes.sort(comparegh);
       std::list<std::shared_ptr<Node> >::iterator it1 = openList.begin();
       std::list<std::shared_ptr<Node> >::iterator it2 = newNodes.begin();
@@ -55,6 +59,73 @@ namespace graph_search2{
       if(node->isSame(closeList[i])) return true;
     }
     return false;
+  }
+
+  inline std::shared_ptr<Node> findAndPopNodeInOpenList(std::list<std::shared_ptr<Node> >&openList, const std::shared_ptr<Node>& node){
+    std::list<std::shared_ptr<Node> >::iterator result = std::find_if(openList.begin(),
+                                                                      openList.end(),
+                                                                      [&](std::shared_ptr<Node>& n){
+                                                                        return node->isSame(n);
+                                                                      });
+    if(result == openList.end()) return nullptr;
+    std::shared_ptr<Node> resultNode = *result;
+    openList.erase(result);
+    return resultNode;
+  }
+
+  inline std::shared_ptr<Node> solveWithOutValidity(std::list<std::shared_ptr<Node> > openList, // copy
+                                                    std::vector<std::shared_ptr<Node> > closeList, // copy
+                                                    const struct timeval& startTime,
+                                                    const Param& param) {
+    std::shared_ptr<Node> target_;
+    struct timeval currentTime;
+    gettimeofday(&currentTime, NULL);
+    while(((currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6) < param.timeout){
+      if(openList.size()==0) break;
+      std::shared_ptr<Node> target = openList.front();
+      openList.pop_front();
+      if(findNodeInCloseList(closeList,target)) continue;
+      if(target->isGoal()) {
+        target_ = target;
+        break;
+      }
+      closeList.push_back(target);
+      std::list<std::shared_ptr<Node> > children = target->expand();
+      addToOpenList(openList, children, param.solverType);
+      gettimeofday(&currentTime, NULL);
+    };
+    return target_;
+  }
+
+  inline std::shared_ptr<Node> popFromOpenList(std::list<std::shared_ptr<Node> >& openList,
+                                               std::vector<std::shared_ptr<Node> > closeList,// copy
+                                               std::list<std::shared_ptr<Node> >& guideList,
+                                               const struct timeval& startTime,
+                                               const Param& param) {
+    if(param.solverType == Param::SolverType::BREADH_FIRST ||
+       param.solverType == Param::SolverType::DEPTH_FIRST ||
+       param.solverType == Param::SolverType::BEST_FIRST ||
+       param.solverType == Param::SolverType::A_STAR){
+      std::shared_ptr<Node> target = openList.front();
+      openList.pop_front();
+      return target;
+    }else{
+      while(true){
+        if(guideList.size() == 0){
+          std::shared_ptr<Node> guide = solveWithOutValidity(openList,
+                                                             closeList,
+                                                             startTime,
+                                                             param);
+          if(!guide) return nullptr;
+          std::vector<std::shared_ptr<Node> > guideList_ = path<Node>(guide);
+          guideList = std::list<std::shared_ptr<Node> >(guideList_.begin(),guideList_.end());
+        }
+        std::shared_ptr<Node> guide = guideList.front();
+        guideList.pop_front();
+        std::shared_ptr<Node> target = findAndPopNodeInOpenList(openList, guide);
+        if(target) return target;
+      }
+    }
   }
 
   std::shared_ptr<Node> solve(const std::list<std::shared_ptr<Node> >& startNodes,
@@ -83,14 +154,18 @@ namespace graph_search2{
       std::shared_ptr<Node> target_;
       struct timeval currentTime;
       gettimeofday(&currentTime, NULL);
+      std::list<std::shared_ptr<Node> > guideList;
       while(validityNum < param.maxValidityNum &&
             ((currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6) < param.timeout){
         if(openList.size()==0) break;
-        std::shared_ptr<Node> target = openList.front();
+        std::shared_ptr<Node> target = popFromOpenList(openList,
+                                                       closeList,
+                                                       guideList,
+                                                       startTime,
+                                                       param);
         if(param.debugLevel >= 2) {
           std::cerr << "openList:" << openList.size() << ", closeList: " << closeList.size() << ", validityNum: " << validityNum << std::endl;
         }
-        openList.pop_front();
         if(findNodeInCloseList(closeList,target)) continue;
         validityNum++;
         if(!target->checkValidity()) continue;
@@ -106,7 +181,7 @@ namespace graph_search2{
       if(param.debugLevel >= 1){
         struct timeval currentTime;
         gettimeofday(&currentTime, NULL);
-        std::cerr << "graph_search2 finished in " << (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6 << std::endl;
+        std::cerr << "graph_search2 " << (target_ ? "solved" : "failed")<< " in " << (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6 << std::endl;
       }
       return target_;
     }
@@ -118,6 +193,7 @@ namespace graph_search2{
       threads.push_back(std::make_unique<std::thread>([&,i]{
         struct timeval currentTime;
         gettimeofday(&currentTime, NULL);
+        std::list<std::shared_ptr<Node> > guideList;
         while(true){
           openList_cv.notify_all();
           std::shared_ptr<Node> target;
@@ -132,8 +208,12 @@ namespace graph_search2{
             if(finished) break;
             waitingThreadsNum -= 1;
             if(openList.size() == 0) continue; // 念の為.
-            target = openList.front();
-            openList.pop_front();
+            std::lock_guard<std::mutex> closeList_lock(closeList_mtx);
+            target = popFromOpenList(openList,
+                                     closeList,
+                                     guideList,
+                                     startTime,
+                                     param);
           }
           if(i==0 && param.debugLevel >= 2) {
             std::cerr << "openList:" << openList.size() << ", closeList: " << closeList.size() << ", validityNum: " << validityNum << std::endl;
