@@ -156,7 +156,8 @@ namespace graph_search2{
       gettimeofday(&currentTime, NULL);
       std::list<std::shared_ptr<Node> > guideList;
       while(validityNum < param.maxValidityNum &&
-            ((currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6) < param.timeout){
+            ((currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6) < param.timeout &&
+            !param.ptc()){
         if(openList.size()==0) break;
         std::shared_ptr<Node> target = popFromOpenList(openList,
                                                        closeList,
@@ -204,6 +205,7 @@ namespace graph_search2{
                                               if(openList.size()==0 && waitingThreadsNum==param.threadsNum) finished = true;
                                               gettimeofday(&currentTime, NULL);
                                               if(((currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6) > param.timeout) finished = true;
+                                              if(param.ptc()) finished = true;
                                               return openList.size()!=0 || finished; });
             if(finished) break;
             waitingThreadsNum -= 1;

@@ -4,6 +4,7 @@
 #include <list>
 #include <vector>
 #include <memory>
+#include <functional>
 
 namespace graph_search2{
   class Node : public std::enable_shared_from_this<Node> {
@@ -73,6 +74,7 @@ namespace graph_search2{
     unsigned long maxValidityNum = 1e6;
     double timeout = 30.0;
     unsigned int threadsNum = 1;
+    std::function<bool()> ptc = [](){return false;}; // この値がtrueなら、即座に探索を中断し返る.
     int debugLevel = 0; // 0: no message. 1: time measure. 2: verbose
   };
   std::shared_ptr<Node> solve(const std::list<std::shared_ptr<Node> >& startNodes,
