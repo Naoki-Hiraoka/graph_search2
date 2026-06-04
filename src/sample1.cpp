@@ -21,6 +21,9 @@ public:
     else this->gCost_ = 0;
     if(this->x==4 && this->y==0) this->isGoal_ = true;
     else this->isGoal_ = false;
+    this->hash_ = 0;
+    boost::hash_combine(this->hash_, this->x);
+    boost::hash_combine(this->hash_, this->y);
   }
 
   bool isSame(const std::shared_ptr<graph_search2::Node>& other) const override{
@@ -84,7 +87,7 @@ int main(){
   startNode->calcCost();
   graph_search2::Param param;
   param.threadsNum = 10;
-  //param.debugLevel = 2;
+  // param.debugLevel = 2;
 
   {
     std::cout << std::endl << "BREADH_FIRST" << std::endl;

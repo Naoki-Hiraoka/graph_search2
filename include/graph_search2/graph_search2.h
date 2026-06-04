@@ -1,10 +1,10 @@
-#ifndef GRAPH_SEARCH2_GRAPH_SEARCH2_H
-#define GRAPH_SEARCH2_GRAPH_SEARCH2_H
+#pragma once
 
 #include <list>
 #include <vector>
 #include <memory>
 #include <functional>
+#include <boost/container_hash/hash.hpp>
 
 namespace graph_search2{
   class Node : public std::enable_shared_from_this<Node> {
@@ -21,6 +21,9 @@ namespace graph_search2{
 
     // start nodeからこのnodeまでのコスト
     double gCost() const {return this->gCost_; }
+
+    // hash値を返す. isSameと連動させること.
+    size_t hash() const {return this->hash_; }
 
     // goalに到達しているか. この関数がtrueを返したならば、探索は修了する.
     virtual bool isGoal() const {return this->isGoal_; }
@@ -42,6 +45,7 @@ namespace graph_search2{
     double hCost_ = 0;
     double gCost_ = 0;
     bool isGoal_ = false;
+    size_t hash_ = 0;
   };
 
   template<typename T>
@@ -81,5 +85,3 @@ namespace graph_search2{
                               const Param& param = Param());
 
 }
-
-#endif

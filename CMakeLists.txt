@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(graph_search2)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_BUILD_TYPE Release)
 
 find_package(catkin REQUIRED COMPONENTS)
