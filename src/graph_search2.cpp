@@ -37,47 +37,12 @@ namespace graph_search2{
     else if(aCost == bCost && a->hash() > b->hash()) return true;
     else return false;
   }
-
-  inline void addToOpenList(std::list<std::shared_ptr<Node> >& openList/*ソート済みである*/, std::list<std::shared_ptr<Node> >& newNodes/*破壊的処理される*/, const Param::SolverType& solverType) {
-    if(solverType == Param::SolverType::BREADH_FIRST ||
-       solverType == Param::SolverType::TAMP_BREADH_FIRST){
-      openList.insert(openList.end(), newNodes.begin(), newNodes.end());
-    }else if (solverType == Param::SolverType::DEPTH_FIRST ||
-              solverType == Param::SolverType::TAMP_DEPTH_FIRST){
-      openList.insert(openList.begin(), newNodes.begin(), newNodes.end());
-    }else if (solverType == Param::SolverType::BEST_FIRST ||
-              solverType == Param::SolverType::TAMP_BEST_FIRST){
-      newNodes.sort(compareh);
-      std::list<std::shared_ptr<Node> >::iterator it1 = openList.begin();
-      std::list<std::shared_ptr<Node> >::iterator it2 = newNodes.begin();
-      while(it2!=newNodes.end()){
-        if(it1 == openList.end()){
-          openList.insert(openList.end(), it2, newNodes.end());
-          it2 = newNodes.end();
-        }else if (compareh(*it1,*it2)){
-          it1++;
-        }else{
-          openList.insert(it1,*it2);
-          it2++;
-        }
-      }
-    }else if (solverType == Param::SolverType::A_STAR ||
-              solverType == Param::SolverType::TAMP_A_STAR){
-      newNodes.sort(comparegh);
-      std::list<std::shared_ptr<Node> >::iterator it1 = openList.begin();
-      std::list<std::shared_ptr<Node> >::iterator it2 = newNodes.begin();
-      while(it2!=newNodes.end()){
-        if(it1 == openList.end()){
-          openList.insert(openList.end(), it2, newNodes.end());
-          it2 = newNodes.end();
-        }else if (comparegh(*it1,*it2)){
-          it1++;
-        }else{
-          openList.insert(it1,*it2);
-          it2++;
-        }
-      }
-    }
+  bool comparewgh(double w, const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b) {
+    double aCost = a->gCost() + w * a->hCost();
+    double bCost = b->gCost() + w * b->hCost();
+    if(aCost > bCost) return true;
+    else if(aCost == bCost && a->hash() > b->hash()) return true;
+    else return false;
   }
 
   inline std::shared_ptr<Node> solveWithOutValidity(std::multiset<std::shared_ptr<Node>, decltype(&compareh) > openList, // copy
@@ -316,18 +281,41 @@ namespace graph_search2{
         if(param.debugLevel >= 2) {
           std::cerr << "openList:" << openListQueue.size() << ", closeList: " << closeList.size() << ", validityNum: " << validityNum << std::endl;
         }
-        if(closeList.contains(target)) continue;
+        if(param.solverType == Param::SolverType::BEST_FIRST){
+          if(closeList.contains(target)) continue;
+        }else if(param.solverType == Param::SolverType::A_STAR){
+          std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >::iterator it = closeList.find(target);
+          if(it!=closeList.end() && (*it)->gCost() <= target->gCost()) continue;
+        }
         validityNum++;
         if(!target->checkValidity()) continue;
         if(target->isGoal()) {
           target_ = target;
           break;
         }
-        closeList.insert(target);
+        if(param.solverType == Param::SolverType::BEST_FIRST){
+          closeList.insert(target);
+        }else if(param.solverType == Param::SolverType::A_STAR){
+          std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >::iterator it = closeList.find(target);
+          if(it==closeList.end()) {
+            closeList.insert(target);
+          }else if((*it)->gCost() <= target->gCost()) {
+            continue;
+          }else{
+            closeList.erase(target);
+            closeList.insert(target);
+          }
+        }
+
+        struct timespec startTime1;
+        clock_gettime(CLOCK_MONOTONIC, &startTime1);
+
         std::list<std::shared_ptr<Node> > children = target->expand();
+
         for(std::shared_ptr<Node>& child: children){
           openListQueue.push(child);
         }
+
         gettimeofday(&currentTime, NULL);
       };
       if(param.debugLevel >= 1){
@@ -335,6 +323,7 @@ namespace graph_search2{
         gettimeofday(&currentTime, NULL);
         std::cerr << "graph_search2 " << (target_ ? "solved" : "failed")<< " in " << (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6 << std::endl;
       }
+      // if(!target_ && openListQueue.size()!=0) target_ = openListQueue.top();
       return target_;
     }
 
@@ -369,7 +358,12 @@ namespace graph_search2{
           }
           {
             std::lock_guard<std::mutex> closeList_lock(closeList_mtx);
-            if(closeList.contains(target)) continue;
+            if(param.solverType == Param::SolverType::BEST_FIRST){
+              if(closeList.contains(target)) continue;
+            }else if(param.solverType == Param::SolverType::A_STAR){
+              std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >::iterator it = closeList.find(target);
+              if(it!=closeList.end() && (*it)->gCost() <= target->gCost()) continue;
+            }
           }
           validityNum++;
           if(validityNum >= param.maxValidityNum) {
@@ -383,7 +377,19 @@ namespace graph_search2{
           }
           {
             std::lock_guard<std::mutex> closeList_lock(closeList_mtx);
-            closeList.insert(target);
+            if(param.solverType == Param::SolverType::BEST_FIRST){
+              closeList.insert(target);
+            }else if(param.solverType == Param::SolverType::A_STAR){
+              std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >::iterator it = closeList.find(target);
+              if(it==closeList.end()) {
+                closeList.insert(target);
+              }else if((*it)->gCost() <= target->gCost()) {
+                continue;
+              }else{
+                closeList.erase(target);
+                closeList.insert(target);
+              }
+            }
           }
           std::list<std::shared_ptr<Node> > children = target->expand();
           {
@@ -405,6 +411,213 @@ namespace graph_search2{
       std::cerr << "graph_search2 finished in " << (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6 << std::endl;
     }
     return goal;
+  }
+
+  std::shared_ptr<Node> solveByAnytimePriorityQueueOnce(const std::list<std::shared_ptr<Node> >& startNodes,
+                                                        double w,
+                                                        double bound,
+                                                        const std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >& seenList,
+                                                        std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >& closeList,
+                                                        struct timeval startTime,
+                                                        const Param& param) {
+
+    std::function<bool(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b)> compare = std::bind(comparewgh,w,std::placeholders::_1,std::placeholders::_2);
+    std::priority_queue<std::shared_ptr<Node>, std::vector<std::shared_ptr<Node> >, decltype(compare) > openListQueue{compare};
+    std::mutex openList_mtx;
+    std::condition_variable openList_cv;
+    int waitingThreadsNum = 0;
+    for(const std::shared_ptr<Node>& node: startNodes){
+      openListQueue.push(node);
+    }
+
+    closeList.clear();
+    std::mutex closeList_mtx;
+
+    unsigned long validityNum = 0;
+
+    if(param.threadsNum<=1){
+      std::shared_ptr<Node> target_;
+      struct timeval currentTime;
+      gettimeofday(&currentTime, NULL);
+      std::list<std::shared_ptr<Node> > guideList;
+      while(validityNum < param.maxValidityNum &&
+            ((currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6) < param.timeout &&
+            !param.ptc()){
+        if(openListQueue.size()==0) break;
+        std::shared_ptr<Node>  target = openListQueue.top();
+        openListQueue.pop();
+        if(param.debugLevel >= 2) {
+          std::cerr << "openList:" << openListQueue.size() << ", closeList: " << closeList.size() << ", validityNum: " << validityNum << std::endl;
+        }
+        if(target->gCost() + target->hCost() >= bound) continue;
+        {
+          std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >::iterator close_it = closeList.find(target);
+          std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >::const_iterator seen_it = seenList.find(target);
+          if(close_it == closeList.end() && seen_it == seenList.end()){
+            // pass
+          }else if(seen_it != seenList.end()) {
+            if((*seen_it)->gCost() <= target->gCost()) target = *seen_it;
+          }else{
+            if((*close_it)->gCost() <= target->gCost()) continue;
+          }
+        }
+        validityNum++;
+        if(!target->checkValidity()) continue;
+        if(target->isGoal()) {
+          target_ = target;
+          break;
+        }
+        {
+          std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >::iterator it = closeList.find(target);
+          if(it==closeList.end()) {
+            closeList.insert(target);
+          }else if((*it)->gCost() <= target->gCost()) {
+            continue;
+          }else{
+            closeList.erase(target);
+            closeList.insert(target);
+          }
+        }
+
+        struct timespec startTime1;
+        clock_gettime(CLOCK_MONOTONIC, &startTime1);
+
+        std::list<std::shared_ptr<Node> > children = target->expand();
+
+        for(std::shared_ptr<Node>& child: children){
+          openListQueue.push(child);
+        }
+
+        gettimeofday(&currentTime, NULL);
+      };
+      if(param.debugLevel >= 1){
+        struct timeval currentTime;
+        gettimeofday(&currentTime, NULL);
+        std::cerr << "graph_search2 " << (target_ ? "solved" : "failed")<< " in " << (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6 << std::endl;
+      }
+      // if(!target_ && openListQueue.size()!=0) target_ = openListQueue.top();
+      return target_;
+    }else{
+
+      std::shared_ptr<Node> goal = nullptr;
+      std::vector<std::unique_ptr<std::thread> > threads;
+      bool finished = false; // goal || validityNum >= param.maxValidityNum || (openList.size()==0 && waitingThreadsNum==param.threadsNum) || (((currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6) > param.timeout)
+      for(int i=0;i<param.threadsNum;i++){
+        threads.push_back(std::make_unique<std::thread>([&,i]{
+          struct timeval currentTime;
+          gettimeofday(&currentTime, NULL);
+          std::list<std::shared_ptr<Node> > guideList;
+          while(true){
+            openList_cv.notify_all();
+            std::shared_ptr<Node> target;
+            {
+              std::unique_lock<std::mutex> openList_lock(openList_mtx);
+              waitingThreadsNum += 1;
+              openList_cv.wait(openList_lock, [&] {
+                                                if(openListQueue.size()==0 && waitingThreadsNum==param.threadsNum) finished = true;
+                                                gettimeofday(&currentTime, NULL);
+                                                if(((currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6) > param.timeout) finished = true;
+                                                if(param.ptc()) finished = true;
+                                                return openListQueue.size()!=0 || finished; });
+              if(finished) break;
+              waitingThreadsNum -= 1;
+              if(openListQueue.size() == 0) continue; // 念の為.
+              target = openListQueue.top();
+              openListQueue.pop();
+            }
+            if(i==0 && param.debugLevel >= 2) {
+              std::cerr << "openList:" << openListQueue.size() << ", closeList: " << closeList.size() << ", validityNum: " << validityNum << std::endl;
+            }
+            if(target->gCost() + target->hCost() >= bound) continue;
+            {
+              std::lock_guard<std::mutex> closeList_lock(closeList_mtx);
+              std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >::iterator close_it = closeList.find(target);
+              std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >::const_iterator seen_it = seenList.find(target);
+              if(close_it == closeList.end() && seen_it == seenList.end()){
+                // pass
+              }else if(close_it == closeList.end() && seen_it != seenList.end()) {
+                if((*seen_it)->gCost() <= target->gCost()) target = *seen_it;
+              }else{
+                if((*close_it)->gCost() <= target->gCost()) continue;
+              }
+            }
+            validityNum++;
+            if(validityNum >= param.maxValidityNum) {
+              finished = true;
+            }
+            if(!target->checkValidity()) continue;
+            if(target->isGoal()) {
+              if(!goal) goal = target;
+              finished = true;
+              continue;
+            }
+            {
+              std::lock_guard<std::mutex> closeList_lock(closeList_mtx);
+              std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >::iterator it = closeList.find(target);
+              if(it==closeList.end()) {
+                closeList.insert(target);
+              }else if((*it)->gCost() <= target->gCost()) {
+                continue;
+              }else{
+                closeList.erase(target);
+                closeList.insert(target);
+              }
+            }
+            std::list<std::shared_ptr<Node> > children = target->expand();
+            {
+              std::lock_guard<std::mutex> openList_lock(openList_mtx);
+              for(std::shared_ptr<Node>& child: children){
+                openListQueue.push(child);
+              }
+            }
+          }
+          openList_cv.notify_all();
+                                                        }));
+      }
+      for(int i=0;i<threads.size();i++){
+        threads[i]->join();
+      }
+      if(param.debugLevel >= 1){
+        struct timeval currentTime;
+        gettimeofday(&currentTime, NULL);
+        std::cerr << "graph_search2 finished in " << (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6 << std::endl;
+      }
+      return goal;
+    }
+  }
+
+  std::shared_ptr<Node> solveByAnytimePriorityQueue(const std::list<std::shared_ptr<Node> >& startNodes,
+                                                    const Param& param) {
+    if(param.solverType != Param::SolverType::RWA_STAR){
+      std::cerr << "[solveByQueue] Wrong SolverType" << std::endl;
+      return nullptr;
+    }
+
+    for(std::list<std::shared_ptr<Node> >::const_iterator it=startNodes.begin(); it!=startNodes.end(); it++){
+      (*it)->calcCost();
+    }
+
+    double w = param.w0;
+    double bound = std::numeric_limits<double>::max();
+    std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual > seenList;
+    std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual > closeList;
+    struct timeval startTime;
+    gettimeofday(&startTime, NULL);
+
+    std::shared_ptr<Node> result;
+    while(true){
+      std::shared_ptr<Node> current_result = solveByAnytimePriorityQueueOnce(startNodes, w, bound, seenList, closeList, startTime, param);
+      if(!current_result) return result;
+      result = current_result;
+      if(w==1) return result;
+      bound = result->gCost();
+      w = std::max(w * param.phi, 1.0);
+      for(std::shared_ptr<Node> node: closeList){
+        seenList.erase(node);
+        seenList.insert(node);
+      }
+      closeList.clear();
+    }
   }
 
   std::shared_ptr<Node> solveByMultiSet(const std::list<std::shared_ptr<Node> >& startNodes,
@@ -564,6 +777,8 @@ namespace graph_search2{
     else if(param.solverType == Param::SolverType::TAMP_BEST_FIRST ||
             param.solverType == Param::SolverType::TAMP_A_STAR){
       return solveByMultiSet(startNodes, param);
+    } else if(param.solverType == Param::SolverType::RWA_STAR){
+      return solveByAnytimePriorityQueue(startNodes, param);
     }else{
       std::cerr << "[solveByQueue] Wrong SolverType" << std::endl;
       return nullptr;
