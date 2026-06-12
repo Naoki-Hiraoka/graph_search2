@@ -240,7 +240,8 @@ namespace graph_search2{
   std::shared_ptr<Node> solveByPriorityQueue(const std::list<std::shared_ptr<Node> >& startNodes,
                                              const Param& param) {
     if(param.solverType != Param::SolverType::BEST_FIRST &&
-       param.solverType != Param::SolverType::A_STAR){
+       param.solverType != Param::SolverType::A_STAR &&
+       param.solverType != Param::SolverType::WA_STAR){
       std::cerr << "[solveByQueue] Wrong SolverType" << std::endl;
       return nullptr;
     }
@@ -249,11 +250,11 @@ namespace graph_search2{
       (*it)->calcCost();
     }
 
-    std::priority_queue<std::shared_ptr<Node>, std::vector<std::shared_ptr<Node> >, decltype(&compareh) > openListQueue{
-      (param.solverType == Param::SolverType::BEST_FIRST) ? compareh :
-       ((param.solverType == Param::SolverType::A_STAR) ? comparegh :
-        compareh)
-    };
+    std::function<bool(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b)> compare;
+    if(param.solverType == Param::SolverType::BEST_FIRST) compare = &compareh;
+    else if(param.solverType == Param::SolverType::A_STAR) compare = &comparegh;
+    else if(param.solverType == Param::SolverType::WA_STAR) compare = std::bind(comparewgh,param.w0,std::placeholders::_1,std::placeholders::_2);
+    std::priority_queue<std::shared_ptr<Node>, std::vector<std::shared_ptr<Node> >, decltype(compare) > openListQueue{compare};
     std::mutex openList_mtx;
     std::condition_variable openList_cv;
     int waitingThreadsNum = 0;
@@ -284,7 +285,8 @@ namespace graph_search2{
         }
         if(param.solverType == Param::SolverType::BEST_FIRST){
           if(closeList.contains(target)) continue;
-        }else if(param.solverType == Param::SolverType::A_STAR){
+        }else if(param.solverType == Param::SolverType::A_STAR ||
+                 param.solverType == Param::SolverType::WA_STAR){
           std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >::iterator it = closeList.find(target);
           if(it!=closeList.end() && (*it)->gCost() <= target->gCost()) continue;
         }
@@ -296,7 +298,8 @@ namespace graph_search2{
         }
         if(param.solverType == Param::SolverType::BEST_FIRST){
           closeList.insert(target);
-        }else if(param.solverType == Param::SolverType::A_STAR){
+        }else if(param.solverType == Param::SolverType::A_STAR ||
+                 param.solverType == Param::SolverType::WA_STAR){
           std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >::iterator it = closeList.find(target);
           if(it==closeList.end()) {
             closeList.insert(target);
@@ -361,7 +364,8 @@ namespace graph_search2{
             std::lock_guard<std::mutex> closeList_lock(closeList_mtx);
             if(param.solverType == Param::SolverType::BEST_FIRST){
               if(closeList.contains(target)) continue;
-            }else if(param.solverType == Param::SolverType::A_STAR){
+            }else if(param.solverType == Param::SolverType::A_STAR ||
+                     param.solverType == Param::SolverType::WA_STAR){
               std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >::iterator it = closeList.find(target);
               if(it!=closeList.end() && (*it)->gCost() <= target->gCost()) continue;
             }
@@ -381,7 +385,8 @@ namespace graph_search2{
             if(param.solverType == Param::SolverType::BEST_FIRST){
               if(closeList.contains(target)) continue;
               closeList.insert(target);
-            }else if(param.solverType == Param::SolverType::A_STAR){
+            }else if(param.solverType == Param::SolverType::A_STAR |
+                     param.solverType == Param::SolverType::WA_STAR){
               std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >::iterator it = closeList.find(target);
               if(it==closeList.end()) {
                 closeList.insert(target);
@@ -774,7 +779,8 @@ namespace graph_search2{
       return solveByQueue(startNodes, param);
     }
     else if(param.solverType == Param::SolverType::BEST_FIRST ||
-            param.solverType == Param::SolverType::A_STAR){
+            param.solverType == Param::SolverType::A_STAR ||
+            param.solverType == Param::SolverType::WA_STAR){
       return solveByPriorityQueue(startNodes, param);
     }
     else if(param.solverType == Param::SolverType::TAMP_BEST_FIRST ||

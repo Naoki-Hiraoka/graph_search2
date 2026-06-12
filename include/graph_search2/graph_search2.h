@@ -69,6 +69,7 @@ namespace graph_search2{
        DEPTH_FIRST,
        BEST_FIRST,
        A_STAR,
+       WA_STAR,
        TAMP_BEST_FIRST,
        TAMP_A_STAR,
        RWA_STAR
@@ -77,7 +78,7 @@ namespace graph_search2{
     unsigned long maxValidityNum = 1e6;
     double timeout = 30.0;
     unsigned int threadsNum = 1;
-    double w0 = 10.0; // for RWA_STAR
+    double w0 = 10.0; // for WA_STAR, RWA_STAR
     double phi = 0.5; // for RWA_STAR
     std::function<bool()> ptc = [](){return false;}; // この値がtrueなら、即座に探索を中断し返る.
     int debugLevel = 0; // 0: no message. 1: time measure. 2: verbose
