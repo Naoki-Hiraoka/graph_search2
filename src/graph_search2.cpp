@@ -209,6 +209,7 @@ namespace graph_search2{
           }
           {
             std::lock_guard<std::mutex> closeList_lock(closeList_mtx);
+            if(closeList.contains(target)) continue;
             closeList.insert(target);
           }
           std::list<std::shared_ptr<Node> > children = target->expand();
@@ -378,6 +379,7 @@ namespace graph_search2{
           {
             std::lock_guard<std::mutex> closeList_lock(closeList_mtx);
             if(param.solverType == Param::SolverType::BEST_FIRST){
+              if(closeList.contains(target)) continue;
               closeList.insert(target);
             }else if(param.solverType == Param::SolverType::A_STAR){
               std::unordered_set<std::shared_ptr<Node>, NodeHash, NodeEqual >::iterator it = closeList.find(target);
@@ -493,7 +495,8 @@ namespace graph_search2{
       if(param.debugLevel >= 1){
         struct timeval currentTime;
         gettimeofday(&currentTime, NULL);
-        std::cerr << "graph_search2 " << (target_ ? "solved" : "failed")<< " in " << (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6 << std::endl;
+        std::cerr << "graph_search2 " << (target_ ? "solved" : "failed")<< " in " << (currentTime.tv_sec - startTime.tv_sec) + (currentTime.tv_usec - startTime.tv_usec) * 1e-6 <<std::endl;
+        if(target_) std::cerr << target_->gCost() << std::endl;
       }
       // if(!target_ && openListQueue.size()!=0) target_ = openListQueue.top();
       return target_;
